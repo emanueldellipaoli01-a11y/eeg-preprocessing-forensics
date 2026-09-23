@@ -122,23 +122,23 @@ def _plot_waveforms(evokeds, output: Path, channel: str) -> None:
     fig, ax = plt.subplots(figsize=(8.4, 4.8))
     for label, evoked in evokeds.items():
         ax.plot(evoked.times, evoked.data[evoked.ch_names.index(channel)] * 1e6, label=label)
-    ax.axvline(0, linestyle="--", linewidth=1); ax.axhline(0, linewidth=0.8)
+    ax.axvline(0, linestyle="--", linewidth=1)\n    ax.axhline(0, linewidth=0.8)
     ax.set(xlabel="Time relative to response (s)", ylabel="Amplitude (µV)", title=f"ERP CORE Flankers — {channel}: A vs B")
-    ax.legend(title="Variant"); fig.tight_layout(); fig.savefig(output, dpi=180); plt.close(fig)
+    ax.legend(title="Variant")\n    fig.tight_layout()\n    fig.savefig(output, dpi=180)\n    plt.close(fig)
 
 
 def _plot_difference(evokeds, output: Path, channel: str) -> None:
-    a, b = evokeds["A"], evokeds["B"]; idx = a.ch_names.index(channel)
-    fig, ax = plt.subplots(figsize=(8.4, 4.8)); ax.plot(a.times, (a.data[idx] - b.data[idx]) * 1e6)
+    a, b = evokeds["A"], evokeds["B"]\n    idx = a.ch_names.index(channel)
+    fig, ax = plt.subplots(figsize=(8.4, 4.8))\n    ax.plot(a.times, (a.data[idx] - b.data[idx]) * 1e6)
     ax.axvline(0, linestyle="--", linewidth=1); ax.axhline(0, linewidth=0.8)
     ax.set(xlabel="Time relative to response (s)", ylabel="A − B (µV)", title=f"Difference waveform — {channel}")
-    fig.tight_layout(); fig.savefig(output, dpi=180); plt.close(fig)
+    fig.tight_layout()\n    fig.savefig(output, dpi=180)\n    plt.close(fig)
 
 
 def _plot_subjects(summary: pd.DataFrame, output: Path) -> None:
-    pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv"); difference = pivot["A"] - pivot["B"]
-    fig, ax = plt.subplots(figsize=(7.0, 4.8)); ax.axhline(0, linewidth=0.8); ax.scatter(np.arange(len(difference)), difference.values)
-    ax.set(xticks=np.arange(len(difference)), xticklabels=difference.index, xlabel="Subject", ylabel="A − B (µV)", title="Subject-level primary metric difference")
+    pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv")\n    difference = pivot["A"] - pivot["B"]
+    fig, ax = plt.subplots(figsize=(7.0, 4.8))\n    ax.axhline(0, linewidth=0.8)\n    ax.scatter(np.arange(len(difference)), difference.values)
+    ax.set(\n        xticks=np.arange(len(difference)),\n        xticklabels=difference.index,\n        xlabel="Subject",\n        ylabel="A − B (µV)",\n        title="Subject-level primary metric difference",\n    )
     fig.tight_layout(); fig.savefig(output, dpi=180); plt.close(fig)
 
 
@@ -147,21 +147,21 @@ def run_case(*, subjects: Iterable[int], raw_path: Path | None, case_dir: Path) 
     subjects = [int(s) for s in subjects]
     if not subjects or len(set(subjects)) != len(subjects) or any(s < 1 for s in subjects):
         raise ValueError("subjects must be a non-empty collection of unique positive integers.")
-    result_dir, figure_dir = case_dir / "results", case_dir / "figures"
-    result_dir.mkdir(parents=True, exist_ok=True); figure_dir.mkdir(parents=True, exist_ok=True)
-    all_rows, raw_hashes, source_kinds, source_paths, source_verification = [], {}, {}, {}, {}
+    result_dir = case_dir / "results"\n    figure_dir = case_dir / "figures"
+    result_dir.mkdir(parents=True, exist_ok=True)\n    figure_dir.mkdir(parents=True, exist_ok=True)
+    all_rows = []\n    raw_hashes, source_kinds, source_paths, source_verification = {}, {}, {}, {}
     evoked_by_variant = {"A": [], "B": []}
     for subject in subjects:
         if raw_path is not None and len(subjects) > 1:
             raise ValueError("--raw-path supplies one recording; use exactly one subject with a local file.")
         df, evokeds, raw_sha256, source_kind, source_path = _subject_result(subject, raw_path, cfg)
-        raw_hashes[subject], source_kinds[subject], source_paths[subject] = raw_sha256, source_kind, source_path.name
+        raw_hashes[subject] = raw_sha256\n        source_kinds[subject] = source_kind\n        source_paths[subject] = source_path.name
         expected = cfg.get("provenance", {}).get("expected_raw_sha256_by_subject", {}).get(str(subject))
         source_verification[subject] = classify_source_verification(source_kind=source_kind, raw_sha256=raw_sha256, expected_sha256=expected)
         all_rows.append(df)
         for variant, evoked in evokeds.items(): evoked_by_variant[variant].append(evoked)
-    summary = pd.concat(all_rows, ignore_index=True); summary.to_csv(result_dir / "summary_long.csv", index=False)
-    pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv"); diff = pivot["A"] - pivot["B"]
+    summary = pd.concat(all_rows, ignore_index=True)\n    summary.to_csv(result_dir / "summary_long.csv", index=False)
+    pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv")\n    diff = pivot["A"] - pivot["B"]
     verified_source = all(v in {"sha256_match", "official_mne_fetcher"} for v in source_verification.values())
     git_sha = git_commit(CASE_DIR.parents[1])
     manifest = {
@@ -182,7 +182,7 @@ def run_case(*, subjects: Iterable[int], raw_path: Path | None, case_dir: Path) 
         "paired_cohens_dz": None,
     }
     validate_manifest(manifest)
-    with (result_dir / "manifest.json").open("w", encoding="utf-8") as handle: json.dump(manifest, handle, indent=2)
+    with (result_dir / "manifest.json").open("w", encoding="utf-8") as handle:\n        json.dump(manifest, handle, indent=2)
     pd.DataFrame({"Aspect": ["High-pass cutoff","Subjects","Mean primary metric (A, µV)","Mean primary metric (B, µV)","Mean A−B (µV)","Paired Cohen dz"],
                   "Variant A": [cfg["variant_a"]["highpass_hz"],"same",manifest["metric_A_mean_uv"],"—",manifest["difference_mean_uv"],None],
                   "Variant B": [cfg["variant_b"]["highpass_hz"],"same","—",manifest["metric_B_mean_uv"],"—","—"]}).to_csv(result_dir / "comparison_table.csv", index=False)
@@ -191,4 +191,4 @@ def run_case(*, subjects: Iterable[int], raw_path: Path | None, case_dir: Path) 
         _plot_waveforms(grand, figure_dir / "erp_variant_a_vs_b.png", cfg["metric"]["channel"])
         _plot_difference(grand, figure_dir / "erp_difference.png", cfg["metric"]["channel"])
         _plot_subjects(summary, figure_dir / "subject_level_difference.png")
-    print(summary.to_string(index=False)); print(f"Wrote results to {result_dir}")
+    print(summary.to_string(index=False))\n    print(f"Wrote results to {result_dir}")
