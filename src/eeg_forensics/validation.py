@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from math import isfinite
-import re
 
 VALID_EXECUTION_STATUSES = {"empirical_executed", "unverified_source", "not_executed", "smoke_test"}
 VALID_SOURCE_VERIFICATIONS = {"sha256_match", "official_mne_fetcher", "unverified_local_file"}
