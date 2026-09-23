@@ -21,7 +21,7 @@
     "highpass_hz": 0.1
   },
   "pipeline_b": {
-    "highpass_hz": 1.0
+    "highpass_hz": 1
   },
   "primary_metric": "mean FCz amplitude 0–100 ms post-response (uV)",
   "metric_A_mean_uv": -6.643538038078898,
@@ -48,19 +48,21 @@
     "scipy": "1.18.1",
     "pandas": "2.3.3",
     "matplotlib": "3.11.1",
-    "yaml": "6.0.3",
-    "statsmodels": "not-installed"
+    "yaml": "6.0.3"
   },
   "python_version": "3.14.7 (tags/v3.14.7:823f032, Aug 5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
   "platform": "Windows-11-10.0.26100-SP0",
   "git_commit": null,
-  "configuration_hash": "281ca18b786f74ce1eb4036327971b0a651df0770095d0a65271d029b606a394",
+  "configuration_hash": "8376e2c769f405717ef07ab3dad3c364c92308569d8debe22644b8abc4bb0ae6",
   "random_seed": null,
   "timestamp_utc": "2026-09-05T16:33:20.436495+00:00",
   "execution_status": "empirical_executed",
   "claims": {
     "observed": true,
-    "generalization": false
+    "generalization": false,
+    "provenance_complete": false
   },
-  "paired_cohens_dz": null
+  "paired_cohens_dz": null,
+  "manifest_schema_version": 1,
+  "configuration_file_sha256": "41446bb1f8e2d91727210779de9590fe16406d7473de63acefbb998ac9910722"
 }
