@@ -10,8 +10,6 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
@@ -19,7 +17,13 @@ import pandas as pd
 import yaml
 
 from eeg_forensics.metrics import mean_window_amplitude
-from eeg_forensics.provenance import classify_source_verification, configuration_hash, file_sha256, git_commit, software_versions
+from eeg_forensics.provenance import (
+    classify_source_verification,
+    configuration_hash,
+    file_sha256,
+    git_commit,
+    software_versions,
+)
 from eeg_forensics.validation import validate_manifest
 
 CASE_DIR = Path(__file__).resolve().parent
