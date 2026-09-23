@@ -1,0 +1,17 @@
+name: Bug report
+about: Report a reproducibility, software, or documentation problem
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction command and environment
+      placeholder: Include Python/MNE versions and the smallest reproducible command.
+    validations:
+      required: true

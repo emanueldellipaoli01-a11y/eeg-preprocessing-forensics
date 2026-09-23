@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+.venv/
+.env
+.DS_Store
+.ipynb_checkpoints/
+
+# External EEG data and generated binary files
+mne_data/
+data/raw/
+data/derivatives/
+cases/*/results/*.fif
+cases/*/results/*.npy
+cases/*/results/*.npz

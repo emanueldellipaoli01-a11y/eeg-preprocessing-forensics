@@ -1,0 +1,271 @@
+"""Run the two Case 001 preprocessing variants and write the results."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import platform
+import sys
+from collections.abc import Iterable
+from datetime import datetime, timezone
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import mne
+import numpy as np
+import pandas as pd
+import yaml
+
+from eeg_forensics.metrics import mean_window_amplitude
+from eeg_forensics.provenance import (
+    classify_source_verification,
+    configuration_hash,
+    git_commit,
+    software_versions,
+)
+from eeg_forensics.validation import validate_manifest
+
+CASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = CASE_DIR / "config.yaml"
+
+
+def load_config() -> dict:
+    with CONFIG_PATH.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_raw(subject: int, raw_path: Path | None) -> tuple[mne.io.BaseRaw, str, str, Path]:
+    if raw_path is not None:
+        if not raw_path.exists():
+            raise FileNotFoundError(raw_path)
+        return mne.io.read_raw_fif(raw_path, preload=True, verbose=False), _file_sha256(raw_path), "local_file", raw_path
+
+    data_dir = Path(mne.datasets.erp_core.data_path(verbose=False))
+    filename = f"ERP-CORE_Subject-{subject:03d}_Task-Flankers_eeg.fif"
+    path = data_dir / filename
+    return mne.io.read_raw_fif(path, preload=True, verbose=False), _file_sha256(path), "mne_erp_core_fetcher", path
+
+
+def _incorrect_response_events(raw: mne.io.BaseRaw) -> np.ndarray:
+    """Derive incorrect response events from ERP CORE stimulus/response annotations."""
+    events, event_id = mne.events_from_annotations(raw, verbose=False)
+    descriptions = {code: name for name, code in event_id.items()}
+    stimulus = []
+    responses = []
+    for sample, _, code in events:
+        name = descriptions[code]
+        if name.startswith("stimulus/") and "/target_" in name:
+            stimulus.append((sample, name))
+        elif name.startswith("response/"):
+            responses.append((sample, name.rsplit("/", 1)[-1]))
+    if not stimulus or not responses:
+        raise RuntimeError("Expected ERP CORE stimulus and response annotations were not found.")
+    stimulus.sort()
+    incorrect = []
+    for sample, response_side in responses:
+        previous = [item for item in stimulus if item[0] <= sample]
+        if not previous:
+            continue
+        stim_sample, stim_name = previous[-1]
+        if sample - stim_sample > int(2.0 * raw.info["sfreq"]):
+            continue
+        target_side = stim_name.rsplit("_", 1)[-1]
+        if response_side != target_side:
+            incorrect.append([sample, 0, 1])
+    if not incorrect:
+        raise RuntimeError("No incorrect responses could be derived from the annotation stream.")
+    return np.asarray(incorrect, dtype=int)
+
+
+def _preprocess(raw: mne.io.BaseRaw, highpass_hz: float, cfg: dict) -> mne.Epochs:
+    work = raw.copy()
+    work.filter(
+        l_freq=highpass_hz,
+        h_freq=cfg["filter"]["lowpass_hz"],
+        method="fir",
+        phase="zero",
+        verbose=False,
+    )
+    work.set_eeg_reference(cfg["reference"], projection=False, verbose=False)
+    events = _incorrect_response_events(work)
+    epochs = mne.Epochs(
+        work,
+        events,
+        event_id={"incorrect_response": 1},
+        tmin=cfg["epoching"]["tmin_s"],
+        tmax=cfg["epoching"]["tmax_s"],
+        baseline=tuple(cfg["baseline_s"]),
+        picks="eeg",
+        preload=True,
+        reject={"eeg": cfg["rejection_uV"]["eeg"] * 1e-6},
+        reject_by_annotation=True,
+        verbose=False,
+    )
+    return epochs
+
+
+def _subject_result(subject: int, raw_path: Path | None, cfg: dict) -> tuple[pd.DataFrame, dict[str, mne.Evoked], str, str, Path]:
+    raw, raw_sha256, source_kind, source_path = _load_raw(subject, raw_path)
+    rows = []
+    evokeds = {}
+    for variant, cutoff in [("A", cfg["variant_a"]["highpass_hz"]), ("B", cfg["variant_b"]["highpass_hz"])]:
+        epochs = _preprocess(raw, cutoff, cfg)
+        if cfg["metric"]["channel"] not in epochs.ch_names:
+            raise RuntimeError(f"Metric channel {cfg['metric']['channel']} not found.")
+        evoked = epochs.average()
+        evokeds[variant] = evoked
+        value = mean_window_amplitude(
+            evoked,
+            cfg["metric"]["channel"],
+            cfg["metric"]["tmin_s"],
+            cfg["metric"]["tmax_s"],
+        )
+        rows.append(
+            {
+                "subject": subject,
+                "variant": variant,
+                "highpass_hz": cutoff,
+                "primary_metric_uv": value * 1e6,
+                "n_epochs": len(epochs),
+            }
+        )
+    return pd.DataFrame(rows), evokeds, raw_sha256, source_kind, source_path
+
+
+def _plot_waveforms(evokeds: dict[str, mne.Evoked], output: Path, channel: str) -> None:
+    fig, ax = plt.subplots(figsize=(8.4, 4.8))
+    for label, evoked in evokeds.items():
+        idx = evoked.ch_names.index(channel)
+        ax.plot(evoked.times, evoked.data[idx] * 1e6, label=label)
+    ax.axvline(0, linestyle="--", linewidth=1)
+    ax.axhline(0, linewidth=0.8)
+    ax.set(xlabel="Time relative to response (s)", ylabel="Amplitude (µV)", title=f"ERP CORE Flankers — {channel}: A vs B")
+    ax.legend(title="Variant")
+    fig.tight_layout()
+    fig.savefig(output, dpi=180)
+    plt.close(fig)
+
+
+def _plot_difference(evokeds: dict[str, mne.Evoked], output: Path, channel: str) -> None:
+    a, b = evokeds["A"], evokeds["B"]
+    idx = a.ch_names.index(channel)
+    diff = (a.data[idx] - b.data[idx]) * 1e6
+    fig, ax = plt.subplots(figsize=(8.4, 4.8))
+    ax.plot(a.times, diff)
+    ax.axvline(0, linestyle="--", linewidth=1)
+    ax.axhline(0, linewidth=0.8)
+    ax.set(xlabel="Time relative to response (s)", ylabel="A − B (µV)", title=f"Difference waveform — {channel}")
+    fig.tight_layout()
+    fig.savefig(output, dpi=180)
+    plt.close(fig)
+
+
+def _plot_subjects(summary: pd.DataFrame, output: Path) -> None:
+    pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv")
+    difference = pivot["A"] - pivot["B"]
+    fig, ax = plt.subplots(figsize=(7.0, 4.8))
+    ax.axhline(0, linewidth=0.8)
+    ax.scatter(np.arange(len(difference)), difference.values)
+    ax.set(xticks=np.arange(len(difference)), xticklabels=difference.index, xlabel="Subject", ylabel="A − B (µV)", title="Subject-level primary metric difference")
+    fig.tight_layout()
+    fig.savefig(output, dpi=180)
+    plt.close(fig)
+
+
+def run_case(*, subjects: Iterable[int], raw_path: Path | None, case_dir: Path) -> None:
+    cfg = load_config()
+    subjects = list(subjects)
+    result_dir = case_dir / "results"
+    figure_dir = case_dir / "figures"
+    result_dir.mkdir(parents=True, exist_ok=True)
+    figure_dir.mkdir(parents=True, exist_ok=True)
+
+    all_rows = []
+    raw_hashes: dict[int, str] = {}
+    source_kinds: dict[int, str] = {}
+    source_paths: dict[int, str] = {}
+    source_verification: dict[int, str] = {}
+    evoked_by_variant: dict[str, list[mne.Evoked]] = {"A": [], "B": []}
+    for subject in subjects:
+        if raw_path is not None and len(subjects) > 1:
+            raise ValueError("--raw-path supplies one recording; use exactly one subject with a local file.")
+        df, evokeds, raw_sha256, source_kind, source_path = _subject_result(subject, raw_path, cfg)
+        raw_hashes[int(subject)] = raw_sha256
+        source_kinds[int(subject)] = source_kind
+        source_paths[int(subject)] = source_path.name
+        expected = cfg.get("provenance", {}).get("expected_raw_sha256_by_subject", {}).get(str(int(subject)))
+        source_verification[int(subject)] = classify_source_verification(
+            source_kind=source_kind, raw_sha256=raw_sha256, expected_sha256=expected
+        )
+        all_rows.append(df)
+        for variant, evoked in evokeds.items():
+            evoked_by_variant[variant].append(evoked)
+
+    summary = pd.concat(all_rows, ignore_index=True)
+    grand_evokeds = {
+        variant: mne.combine_evoked(evokeds, weights="equal")
+        for variant, evokeds in evoked_by_variant.items()
+        if evokeds
+    }
+    summary.to_csv(result_dir / "summary_long.csv", index=False)
+
+    pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv")
+    diff = pivot["A"] - pivot["B"]
+    manifest = {
+        "case_id": cfg["case_id"],
+        "dataset": "ERP CORE",
+        "dataset_version": cfg.get("dataset_version", "v1.1.1"),
+        "raw_file_sha256_by_subject": raw_hashes,
+        "raw_source_kind_by_subject": source_kinds,
+        "raw_source_path_by_subject": source_paths,
+        "raw_source_verification_by_subject": source_verification,
+        "subjects": [int(x) for x in sorted(summary["subject"].unique())],
+        "pipeline_a": cfg["variant_a"],
+        "pipeline_b": cfg["variant_b"],
+        "primary_metric": "mean FCz amplitude 0–100 ms post-response (uV)",
+        "metric_A_mean_uv": float(pivot["A"].mean()),
+        "metric_B_mean_uv": float(pivot["B"].mean()),
+        "difference_mean_uv": float(diff.mean()),
+        "difference_sd_uv": float(diff.std(ddof=1)) if len(diff) > 1 else None,
+        "n_subjects": int(len(diff)),
+        "n_epochs_by_subject_and_variant": summary[["subject", "variant", "n_epochs"]].to_dict(orient="records"),
+        "software_versions": software_versions(),
+        "python_version": sys.version,
+        "platform": platform.platform(),
+        "git_commit": git_commit(),
+        "configuration_hash": configuration_hash(cfg),
+        "random_seed": cfg.get("random_seed"),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "execution_status": ("empirical_executed" if all(v in {"sha256_match", "official_mne_fetcher"} for v in source_verification.values()) else "unverified_source"),
+        "claims": {"observed": all(v in {"sha256_match", "official_mne_fetcher"} for v in source_verification.values()), "generalization": False},
+    }
+    paired = diff.dropna().to_numpy(dtype=float)
+    if len(paired) >= 2 and np.std(paired, ddof=1) > 0:
+        manifest["paired_cohens_dz"] = float(np.mean(paired) / np.std(paired, ddof=1))
+    else:
+        manifest["paired_cohens_dz"] = None
+    validate_manifest(manifest)
+    with (result_dir / "manifest.json").open("w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+
+    table = pd.DataFrame({"Aspect": ["High-pass cutoff", "Subjects", "Mean primary metric (A, µV)", "Mean primary metric (B, µV)", "Mean A−B (µV)", "Paired Cohen dz"], "Variant A": [cfg["variant_a"]["highpass_hz"], "same", manifest["metric_A_mean_uv"], "—", manifest["difference_mean_uv"], manifest["paired_cohens_dz"]], "Variant B": [cfg["variant_b"]["highpass_hz"], "same", "—", manifest["metric_B_mean_uv"], "—", "—"]})
+    table.to_csv(result_dir / "comparison_table.csv", index=False)
+
+    if grand_evokeds:
+        _plot_waveforms(grand_evokeds, figure_dir / "erp_variant_a_vs_b.png", cfg["metric"]["channel"])
+        _plot_difference(grand_evokeds, figure_dir / "erp_difference.png", cfg["metric"]["channel"])
+        _plot_subjects(summary, figure_dir / "subject_level_difference.png")
+
+    print(summary.to_string(index=False))
+    print(f"Wrote results to {result_dir}")

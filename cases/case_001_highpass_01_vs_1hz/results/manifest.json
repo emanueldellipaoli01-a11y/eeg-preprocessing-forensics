@@ -1,0 +1,66 @@
+{
+  "case_id": "case_001",
+  "dataset": "ERP CORE",
+  "dataset_version": "v1.1.1",
+  "raw_file_sha256_by_subject": {
+    "1": "ef6957cca68cb4f48d4a1c915e7991af7de91623607896d59b3dc39dcbae44b7"
+  },
+  "raw_source_kind_by_subject": {
+    "1": "mne_erp_core_fetcher"
+  },
+  "raw_source_path_by_subject": {
+    "1": "local_path_redacted"
+  },
+  "raw_source_verification_by_subject": {
+    "1": "official_mne_fetcher"
+  },
+  "subjects": [
+    1
+  ],
+  "pipeline_a": {
+    "highpass_hz": 0.1
+  },
+  "pipeline_b": {
+    "highpass_hz": 1.0
+  },
+  "primary_metric": "mean FCz amplitude 0–100 ms post-response (uV)",
+  "metric_A_mean_uv": -6.643538038078898,
+  "metric_B_mean_uv": -6.742660103275946,
+  "difference_mean_uv": 0.09912206519704814,
+  "difference_sd_uv": null,
+  "n_subjects": 1,
+  "n_epochs_by_subject_and_variant": [
+    {
+      "subject": 1,
+      "variant": "A",
+      "n_epochs": 34
+    },
+    {
+      "subject": 1,
+      "variant": "B",
+      "n_epochs": 37
+    }
+  ],
+  "software_versions": {
+    "python": "3.14.7",
+    "mne": "1.12.1",
+    "numpy": "2.5.2",
+    "scipy": "1.18.1",
+    "pandas": "2.3.3",
+    "matplotlib": "3.11.1",
+    "yaml": "6.0.3",
+    "statsmodels": "not-installed"
+  },
+  "python_version": "3.14.7 (tags/v3.14.7:823f032, Aug 5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26100-SP0",
+  "git_commit": null,
+  "configuration_hash": "281ca18b786f74ce1eb4036327971b0a651df0770095d0a65271d029b606a394",
+  "random_seed": null,
+  "timestamp_utc": "2026-09-05T16:33:20.436495+00:00",
+  "execution_status": "empirical_executed",
+  "claims": {
+    "observed": true,
+    "generalization": false
+  },
+  "paired_cohens_dz": null
+}

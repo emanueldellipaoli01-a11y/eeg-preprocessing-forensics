@@ -1,0 +1,7 @@
+Aspect,Variant A,Variant B
+High-pass cutoff,0.1,1.0
+Subjects,same,same
+"Mean primary metric (A, µV)",-6.643538038078898,—
+"Mean primary metric (B, µV)",—,-6.742660103275946
+Mean A−B (µV),0.09912206519704814,—
+Paired Cohen dz,,—

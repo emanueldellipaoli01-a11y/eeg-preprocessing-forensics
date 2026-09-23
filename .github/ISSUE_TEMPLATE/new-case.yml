@@ -1,0 +1,44 @@
+name: New case
+about: Suggest a comparison of two EEG preprocessing choices
+labels: [case-proposal]
+body:
+  - type: input
+    id: decision
+    attributes:
+      label: Preprocessing choice
+      placeholder: High-pass cutoff, reference, interpolation order...
+    validations:
+      required: true
+
+  - type: textarea
+    id: variants
+    attributes:
+      label: Variant A vs B
+      placeholder: Describe the two settings and what stays fixed.
+    validations:
+      required: true
+
+  - type: input
+    id: dataset
+    attributes:
+      label: Dataset
+      placeholder: Dataset name and DOI/accession
+    validations:
+      required: true
+
+  - type: input
+    id: outcome
+    attributes:
+      label: Outcome
+      placeholder: ERP amplitude, PSD, decoding accuracy...
+    validations:
+      required: true
+
+  - type: textarea
+    id: literature
+    attributes:
+      label: Relevant literature
+      placeholder: Add the main papers or guidelines.
+    validations:
+      required: true
+

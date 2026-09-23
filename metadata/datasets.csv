@@ -1,0 +1,2 @@
+dataset_id,name,version,repository,doi,license,modality,participants,channels,notes
+erp_core_v1.1.1,ERP CORE,v1.1.1,NEMAR,10.82901/nemar.nm000132,CC-BY-4.0,EEG,40,30,"Six ERP paradigms; first case uses Flankers task."

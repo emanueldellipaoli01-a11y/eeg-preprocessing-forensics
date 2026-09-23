@@ -1,0 +1,43 @@
+case_id: case_001
+title: High-pass 0.1 Hz vs 1 Hz
+status: empirical_executed_n1
+
+# Data selection
+dataset_version: v1.1.1
+subjects: [1]
+task: Flankers
+raw_filename_template: ERP-CORE_Subject-{subject:03d}_Task-Flankers_eeg.fif
+
+# Compared settings
+variant_a:
+  highpass_hz: 0.1
+variant_b:
+  highpass_hz: 1.0
+
+# Shared settings
+filter:
+  lowpass_hz: 40.0
+  method: fir_zero_phase
+reference: average
+epoching:
+  event_description_regex: "^response/.+"
+  response_condition: incorrect
+  tmin_s: -0.5
+  tmax_s: 1.0
+baseline_s: [-0.5, -0.2]
+rejection_uV:
+  eeg: 150
+metric:
+  channel: FCz
+  tmin_s: 0.0
+  tmax_s: 0.1
+
+random_seed: null
+
+provenance:
+  expected_raw_sha256_by_subject:
+    "1": "ef6957cca68cb4f48d4a1c915e7991af7de91623607896d59b3dc39dcbae44b7"
+    "2": null
+    "3": null
+    "4": null
+    "5": null
