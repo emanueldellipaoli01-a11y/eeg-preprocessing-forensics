@@ -15,9 +15,22 @@ jobs:
           cache: pip
       - name: Install package
         run: python -m pip install -e ".[dev]"
+      - name: Compile Python sources
+        run: python -m compileall -q src tests tools cases
       - name: Run tests
         run: pytest -q
       - name: Validate case registry
         run: python tools/validate_registry.py
       - name: Lint
         run: ruff check .
+      - name: Package verified source tree
+        if: success() && github.event_name == 'push'
+        run: git archive --format=zip --prefix=eeg-preprocessing-forensics/ HEAD -o eeg-preprocessing-forensics-$GITHUB_SHA.zip
+      - name: Upload verified source archive
+        if: success() && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eeg-preprocessing-forensics-source
+          path: eeg-preprocessing-forensics-${{ github.sha }}.zip
+          if-no-files-found: error
+          retention-days: 7
