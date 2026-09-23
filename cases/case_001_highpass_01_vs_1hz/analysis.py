@@ -63,7 +63,7 @@ def _incorrect_response_events(raw: mne.io.BaseRaw, cfg: dict) -> np.ndarray:
             responses.append((sample, name.rsplit("/", 1)[-1]))
     if not stimulus or not responses:
         raise RuntimeError("Expected ERP CORE stimulus and response annotations were not found.")
-    max_latency_samples = int(round(2.0 * raw.info["sfreq"]))
+    max_latency_samples = int(round(float(epoch_cfg["max_response_latency_s"]) * raw.info["sfreq"]))
     stimulus.sort()
     incorrect = []
     for sample, response_side in responses:
