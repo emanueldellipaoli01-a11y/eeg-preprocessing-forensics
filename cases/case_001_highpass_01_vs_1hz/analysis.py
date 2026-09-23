@@ -136,7 +136,8 @@ def _plot_difference(evokeds, output: Path, channel: str) -> None:
     idx = a.ch_names.index(channel)
     fig, ax = plt.subplots(figsize=(8.4, 4.8))
     ax.plot(a.times, (a.data[idx] - b.data[idx]) * 1e6)
-    ax.axvline(0, linestyle="--", linewidth=1); ax.axhline(0, linewidth=0.8)
+    ax.axvline(0, linestyle="--", linewidth=1)
+    ax.axhline(0, linewidth=0.8)
     ax.set(xlabel="Time relative to response (s)", ylabel="A − B (µV)", title=f"Difference waveform — {channel}")
     fig.tight_layout()
     fig.savefig(output, dpi=180)
@@ -156,7 +157,9 @@ def _plot_subjects(summary: pd.DataFrame, output: Path) -> None:
         ylabel="A − B (µV)",
         title="Subject-level primary metric difference",
     )
-    fig.tight_layout(); fig.savefig(output, dpi=180); plt.close(fig)
+    fig.tight_layout()
+    fig.savefig(output, dpi=180)
+    plt.close(fig)
 
 
 def run_case(*, subjects: Iterable[int], raw_path: Path | None, case_dir: Path) -> None:
@@ -181,7 +184,8 @@ def run_case(*, subjects: Iterable[int], raw_path: Path | None, case_dir: Path) 
         expected = cfg.get("provenance", {}).get("expected_raw_sha256_by_subject", {}).get(str(subject))
         source_verification[subject] = classify_source_verification(source_kind=source_kind, raw_sha256=raw_sha256, expected_sha256=expected)
         all_rows.append(df)
-        for variant, evoked in evokeds.items(): evoked_by_variant[variant].append(evoked)
+        for variant, evoked in evokeds.items():
+            evoked_by_variant[variant].append(evoked)
     summary = pd.concat(all_rows, ignore_index=True)
     summary.to_csv(result_dir / "summary_long.csv", index=False)
     pivot = summary.pivot(index="subject", columns="variant", values="primary_metric_uv")
