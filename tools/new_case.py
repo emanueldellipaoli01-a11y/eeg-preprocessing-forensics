@@ -24,7 +24,7 @@ README = """# {title}
 ## References
 """
 
-CONFIG = """case_id: {case_id}\ntitle: {title}\nstatus: planned\nvariant_a: {{}}\nvariant_b: {{}}\n"
+CONFIG = """case_id: {case_id}\ntitle: {title}\nstatus: planned\nvariant_a: {{}}\nvariant_b: {{}}\n"""
 
 RUN = '''if __name__ == "__main__":
     raise SystemExit("Implement the case before execution.")
